@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { ActivityLogItem, SalesforceObjectName } from '../types';
 
 interface ActivityContextValue {
@@ -36,7 +36,7 @@ export const ActivityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [activities]);
 
-  const logActivity = (
+  const logActivity = useCallback((
     action: ActivityLogItem['action'],
     objectType: SalesforceObjectName,
     status: ActivityLogItem['status'],
@@ -55,12 +55,12 @@ export const ActivityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       payload,
     };
     setActivities((prev) => [newItem, ...prev]);
-  };
+  }, []);
 
-  const clearActivities = () => {
+  const clearActivities = useCallback(() => {
     setActivities([]);
     localStorage.removeItem(STORAGE_KEY);
-  };
+  }, []);
 
   return (
     <ActivityContext.Provider value={{ activities, logActivity, clearActivities }}>

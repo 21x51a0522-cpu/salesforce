@@ -237,22 +237,25 @@ export const DataTable: React.FC<DataTableProps> = ({
         </div>
       </div>
 
-      {/* Error state */}
+      {/* Error state / Backend Notice */}
       {error && !isLoading && (
         <div
           id="table-error-banner"
-          className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3 text-red-800"
+          className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-slate-800"
         >
-          <ShieldAlert className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h4 className="text-sm font-bold">Failed to load {config.pluralName}</h4>
-            <p className="text-xs text-red-700 mt-0.5">{error}</p>
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="text-xs font-bold text-slate-900">Backend Server Notice</h4>
+              <p className="text-xs text-slate-600 mt-0.5">{error}</p>
+            </div>
           </div>
           <button
             onClick={onRefresh}
-            className="text-xs font-bold text-red-700 hover:text-red-900 underline ml-2"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition-colors self-end sm:self-auto"
           >
-            Retry
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Test Connection</span>
           </button>
         </div>
       )}

@@ -1,23 +1,23 @@
 import React, { useState } from 'react';
-import { getApiBaseUrl, setCustomApiBaseUrl } from '../api/apiClient';
+import { 
+  getApiBaseUrl, 
+  setCustomApiBaseUrl, 
+  DEFAULT_LOCAL_BACKEND, 
+  DEFAULT_REMOTE_BACKEND 
+} from '../api/apiClient';
 import { authApi } from '../api/authApi';
 import { contactApi } from '../api/contactApi';
 import { useToast } from '../context/ToastContext';
 import { 
   Settings, 
   Server, 
-  ShieldCheck, 
   Save, 
   RotateCcw, 
   CheckCircle2, 
   AlertCircle, 
-  Terminal, 
-  ExternalLink,
   Code,
-  Layers,
-  ArrowRight,
-  Database,
-  Lock
+  Lock,
+  Globe
 } from 'lucide-react';
 
 interface SettingsPageProps {
@@ -44,10 +44,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onRefreshAuth }) => 
     onRefreshAuth();
   };
 
+  const handleSetPreset = (url: string, label: string) => {
+    setCustomApiBaseUrl(url);
+    setApiUrlInput(url);
+    success(`Switched backend target to ${label}: ${url}`);
+    onRefreshAuth();
+  };
+
   const handleResetDefault = () => {
     setCustomApiBaseUrl(null);
-    const def = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-    setApiUrlInput(def);
+    setApiUrlInput(getApiBaseUrl());
     success('Reset to default backend URL');
     onRefreshAuth();
   };
@@ -68,7 +74,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onRefreshAuth }) => 
       } else {
         setTestResult({
           status: 'error',
-          message: `Backend reachable but Salesforce session returned: ${authStatus.message}`,
+          message: `Backend reachable at ${getApiBaseUrl()} — Salesforce session returned: ${authStatus.message}`,
         });
       }
     } catch (err: any) {
@@ -83,7 +89,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onRefreshAuth }) => 
   };
 
   return (
-    <div id="settings-page-container" className="space-y-6 animate-fade-in">
+    <div id="settings-page-container" className="space-y-6">
       {/* Header */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs">
         <div className="flex items-center gap-2 mb-1">
@@ -105,6 +111,35 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onRefreshAuth }) => 
           <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600">
             VITE_API_BASE_URL
           </span>
+        </div>
+
+        {/* Quick Presets */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-xs text-slate-500 font-medium mr-1">Quick Switch:</span>
+          <button
+            type="button"
+            onClick={() => handleSetPreset(DEFAULT_REMOTE_BACKEND, 'Render Production')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 ${
+              apiUrlInput === DEFAULT_REMOTE_BACKEND 
+                ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-blue-600" />
+            Render (Production)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSetPreset(DEFAULT_LOCAL_BACKEND, 'Localhost')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 ${
+              apiUrlInput === DEFAULT_LOCAL_BACKEND 
+                ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+            }`}
+          >
+            <Server className="w-3.5 h-3.5 text-emerald-600" />
+            Localhost:8080
+          </button>
         </div>
 
         <form onSubmit={handleSaveUrl} className="space-y-3">
@@ -134,15 +169,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onRefreshAuth }) => 
                 type="button"
                 onClick={handleResetDefault}
                 className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
-                title="Reset to default http://localhost:8080"
+                title="Reset to default environment URL"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Default</span>
+                <span>Reset</span>
               </button>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Default is <code className="text-slate-600 font-mono">http://localhost:8080</code> for local Spring Boot development.
-            </p>
           </div>
 
           <div className="pt-2 flex items-center gap-3">
@@ -200,7 +232,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onRefreshAuth }) => 
           <div className="p-3 bg-slate-900 text-slate-200 rounded-xl font-mono text-[11px] space-y-1">
             <div className="text-blue-400">React Frontend (UI)</div>
             <div className="text-slate-500 pl-3">│  HTTP REST requests (credentials: "include")</div>
-            <div className="text-emerald-400">▼ Spring Boot Backend (Port 8080)</div>
+            <div className="text-emerald-400">▼ Spring Boot Backend</div>
             <div className="text-slate-500 pl-3">│  Salesforce OAuth 2.0 PKCE & REST API</div>
             <div className="text-indigo-400">▼ Salesforce Cloud (Instance URL)</div>
           </div>

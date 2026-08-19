@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { SalesforceObjectName, ObjectConfig } from '../types';
 import { OBJECT_CONFIGS } from '../config/objectConfig';
 import { objectApi } from '../api/objectApi';
+import { getApiBaseUrl } from '../api/apiClient';
 import { useToast } from '../context/ToastContext';
 import { useActivity } from '../context/ActivityContext';
 import { ObjectSelector } from '../components/ObjectSelector';
@@ -13,13 +14,8 @@ import { ComingSoonObject } from '../components/ComingSoonObject';
 import { BackendStatusBanner } from '../components/BackendStatusBanner';
 import { AuthStatus } from '../types';
 import { 
-  Users, 
   Database, 
   Layers, 
-  CheckCircle2, 
-  Plus, 
-  RefreshCw,
-  Sparkles,
   ShieldCheck,
   Server
 } from 'lucide-react';
@@ -43,7 +39,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onRefreshAuth,
   onOpenSettings,
 }) => {
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
   const { logActivity } = useActivity();
 
   const currentConfig: ObjectConfig = OBJECT_CONFIGS[selectedObject];
@@ -63,7 +59,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Load records for active object
   const fetchRecords = useCallback(async () => {
-    if (!currentConfig.isBackendReady) {
+    const config = OBJECT_CONFIGS[selectedObject];
+    if (!config || !config.isBackendReady) {
       setRecords([]);
       setRecordsError(null);
       return;
@@ -79,25 +76,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
         'FETCH',
         selectedObject,
         'SUCCESS',
-        `Retrieved ${data.length} ${currentConfig.pluralName.toLowerCase()} from Spring Boot REST API`
+        `Retrieved ${data.length} ${config.pluralName.toLowerCase()} from Spring Boot REST API`
       );
     } catch (err: any) {
-      console.error(`Failed to fetch ${selectedObject} records:`, err);
-      const errMsg = err.message || `Failed to fetch ${selectedObject} records from backend.`;
+      const errMsg = err.message || `Backend unavailable at ${getApiBaseUrl()}`;
       setRecordsError(errMsg);
       setRecords([]);
       logActivity(
         'FETCH',
         selectedObject,
         'ERROR',
-        `Error loading ${currentConfig.pluralName}: ${errMsg}`
+        `Notice loading ${config.pluralName}: ${errMsg}`
       );
     } finally {
       setIsLoadingRecords(false);
     }
-  }, [selectedObject, currentConfig, logActivity]);
+  }, [selectedObject, logActivity]);
 
-  // Fetch when object changes
+  // Fetch only when selectedObject changes
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
@@ -124,7 +120,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     try {
       if (isEdit) {
         // PUT /api/contacts/{id}
-        const updated = await objectApi.updateRecord(selectedObject, editRecord.id, formData);
+        await objectApi.updateRecord(selectedObject, editRecord.id, formData);
         success(`${currentConfig.name} updated successfully`);
         logActivity(
           'UPDATE',
@@ -216,7 +212,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   return (
-    <div id="dashboard-view" className="space-y-6 animate-fade-in">
+    <div id="dashboard-view" className="space-y-6">
       {/* Backend Status Banner (if offline or expired) */}
       <BackendStatusBanner
         authStatus={authStatus}

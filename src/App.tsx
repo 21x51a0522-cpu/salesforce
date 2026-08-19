@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SalesforceObjectName, AuthStatus } from './types';
 import { authApi } from './api/authApi';
-import { ToastProvider, useToast } from './context/ToastContext';
+import { ToastProvider } from './context/ToastContext';
 import { ActivityProvider, useActivity } from './context/ActivityContext';
 import { ToastContainer } from './components/Toast';
 import { Header } from './components/Header';
@@ -11,7 +11,6 @@ import { ActivityPage } from './pages/ActivityPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 function AppContent() {
-  const { info, warning, error, success } = useToast();
   const { logActivity } = useActivity();
 
   // Navigation & SObject state
@@ -50,9 +49,9 @@ function AppContent() {
     }
   }, [logActivity]);
 
-  // Initial check on mount
+  // Initial check once on mount
   useEffect(() => {
-    checkAuth();
+    checkAuth(true);
   }, [checkAuth]);
 
   return (
@@ -84,19 +83,7 @@ function AppContent() {
 
         {/* Content Area */}
         <main id="main-content-area" className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8">
-          {currentTab === 'dashboard' && (
-            <Dashboard
-              selectedObject={selectedObject}
-              onSelectObject={setSelectedObject}
-              authStatus={authStatus}
-              authMessage={authMessage}
-              isCheckingAuth={isCheckingAuth}
-              onRefreshAuth={() => checkAuth(false)}
-              onOpenSettings={() => setCurrentTab('settings')}
-            />
-          )}
-
-          {currentTab === 'objects' && (
+          {(currentTab === 'dashboard' || currentTab === 'objects') && (
             <Dashboard
               selectedObject={selectedObject}
               onSelectObject={setSelectedObject}

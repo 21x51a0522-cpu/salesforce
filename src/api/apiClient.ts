@@ -4,21 +4,44 @@ import { ApiError } from '../types';
  * Base REST API Client for Spring Boot Backend Communication
  * 
  * Architecture:
- * React Frontend ---> Spring Boot Backend (http://localhost:8080) ---> Salesforce REST / OAuth 2.0 PKCE
+ * React Frontend ---> Spring Boot Backend ---> Salesforce REST / OAuth 2.0 PKCE
  * All Salesforce tokens and credentials remain strictly on the Spring Boot backend.
  */
 
-// Environment-based API Base URL configuration
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
+export const DEFAULT_REMOTE_BACKEND = 'https://cloudvandana-salesforce-backend-ytnm.onrender.com';
+export const DEFAULT_LOCAL_BACKEND = 'http://localhost:8080';
 
 export const getApiBaseUrl = (): string => {
-  // Allow optional runtime override from localStorage for live testing in different environments
-  const customUrl = localStorage.getItem('CLOUDVANDANA_API_URL');
-  if (customUrl && customUrl.trim()) {
-    return customUrl.trim().replace(/\/+$/, '');
+  // Check runtime manual override first
+  if (typeof window !== 'undefined') {
+    const customUrl = localStorage.getItem('CLOUDVANDANA_API_URL');
+    if (customUrl && customUrl.trim()) {
+      return customUrl.trim().replace(/\/+$/, '');
+    }
   }
-  return API_BASE_URL;
+
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  const isLocalHostDomain = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '0.0.0.0'
+  );
+
+  // If running locally in browser (e.g. npm run dev), use envUrl or default to localhost:8080
+  if (isLocalHostDomain) {
+    return (envUrl || DEFAULT_LOCAL_BACKEND).replace(/\/+$/, '');
+  }
+
+  // If running on a remote/hosted domain (Vercel, Cloud, AI Studio preview):
+  // If envUrl is explicitly a remote URL (not localhost), use it; otherwise use the deployed Render Spring Boot backend
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1') && !envUrl.includes('0.0.0.0')) {
+    return envUrl.replace(/\/+$/, '');
+  }
+
+  return DEFAULT_REMOTE_BACKEND;
 };
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export const setCustomApiBaseUrl = (url: string | null): void => {
   if (!url || !url.trim()) {
@@ -78,10 +101,9 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
   try {
     response = await fetch(url, mergedOptions);
   } catch (networkErr: any) {
-    console.warn(`[CloudVandana CRM] Network request failed to ${url}:`, networkErr);
     throw new ApiError(
       0,
-      `Unable to reach Spring Boot backend at ${baseUrl}. If running locally, ensure your Spring Boot server is active on port 8080 and CORS is enabled.`,
+      `Backend unavailable at ${baseUrl}. If running locally, ensure your Spring Boot server is active on port 8080 and CORS is enabled.`,
       networkErr
     );
   }
