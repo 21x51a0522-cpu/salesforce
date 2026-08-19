@@ -1,0 +1,6 @@
+{
+  "name": "CloudVandana CRM",
+  "description": "Enterprise Salesforce CRM data management dashboard connecting to a Spring Boot REST API for Account, Opportunity, Lead, Contact, and Case objects.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
