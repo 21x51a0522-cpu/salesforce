@@ -248,28 +248,33 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onRefreshAuth }) => 
           <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100 text-xs">
             <div className="p-2.5 bg-slate-50 flex items-center justify-between font-mono">
               <span className="text-emerald-700 font-bold">GET</span>
-              <span className="text-slate-700">/api/auth/login</span>
-              <span className="text-[10px] text-slate-400">OAuth</span>
+              <span className="text-slate-700">/api/auth/status</span>
+              <span className="text-[10px] text-slate-500 font-medium">OAuth</span>
             </div>
             <div className="p-2.5 flex items-center justify-between font-mono">
-              <span className="text-emerald-700 font-bold">GET</span>
+              <span className="text-blue-700 font-bold">CRUD</span>
+              <span className="text-slate-700">/api/accounts</span>
+              <span className="text-[10px] text-emerald-600 font-bold">Live (20/pg)</span>
+            </div>
+            <div className="p-2.5 flex items-center justify-between font-mono">
+              <span className="text-blue-700 font-bold">CRUD</span>
+              <span className="text-slate-700">/api/opportunities</span>
+              <span className="text-[10px] text-emerald-600 font-bold">Live (20/pg)</span>
+            </div>
+            <div className="p-2.5 flex items-center justify-between font-mono">
+              <span className="text-blue-700 font-bold">CRUD</span>
+              <span className="text-slate-700">/api/leads</span>
+              <span className="text-[10px] text-emerald-600 font-bold">Live (20/pg)</span>
+            </div>
+            <div className="p-2.5 flex items-center justify-between font-mono">
+              <span className="text-blue-700 font-bold">CRUD</span>
               <span className="text-slate-700">/api/contacts</span>
-              <span className="text-[10px] text-emerald-600 font-bold">Live</span>
+              <span className="text-[10px] text-emerald-600 font-bold">Live (20/pg)</span>
             </div>
             <div className="p-2.5 flex items-center justify-between font-mono">
-              <span className="text-blue-700 font-bold">POST</span>
-              <span className="text-slate-700">/api/contacts</span>
-              <span className="text-[10px] text-emerald-600 font-bold">Live</span>
-            </div>
-            <div className="p-2.5 flex items-center justify-between font-mono">
-              <span className="text-amber-700 font-bold">PUT</span>
-              <span className="text-slate-700">/api/contacts/{'{id}'}</span>
-              <span className="text-[10px] text-emerald-600 font-bold">Live</span>
-            </div>
-            <div className="p-2.5 flex items-center justify-between font-mono">
-              <span className="text-red-700 font-bold">DELETE</span>
-              <span className="text-slate-700">/api/contacts/{'{id}'}</span>
-              <span className="text-[10px] text-emerald-600 font-bold">Live</span>
+              <span className="text-blue-700 font-bold">CRUD</span>
+              <span className="text-slate-700">/api/cases</span>
+              <span className="text-[10px] text-emerald-600 font-bold">Live (20/pg)</span>
             </div>
           </div>
         </div>

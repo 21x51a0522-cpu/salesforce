@@ -44,9 +44,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const currentConfig: ObjectConfig = OBJECT_CONFIGS[selectedObject];
 
-  // Records state
+  // Records and pagination state
   const [records, setRecords] = useState<any[]>([]);
   const [isLoadingRecords, setIsLoadingRecords] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [hasMore, setHasMore] = useState<boolean>(false);
   const [recordsError, setRecordsError] = useState<string | null>(null);
 
   // Modals state
@@ -57,12 +59,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [deleteTargetRecord, setDeleteTargetRecord] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
-  // Load records for active object
+  // 1. Initial Load: Fetch first 20 records for active object
   const fetchRecords = useCallback(async () => {
     const config = OBJECT_CONFIGS[selectedObject];
     if (!config || !config.isBackendReady) {
       setRecords([]);
       setRecordsError(null);
+      setHasMore(false);
       return;
     }
 
@@ -70,18 +73,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setRecordsError(null);
 
     try {
-      const data = await objectApi.getRecords(selectedObject);
+      // Load initial batch of 20 records
+      const data = await objectApi.getRecords(selectedObject, { limit: 20, offset: 0 });
       setRecords(data);
+      setHasMore(data.length === 20);
+
       logActivity(
         'FETCH',
         selectedObject,
         'SUCCESS',
-        `Retrieved ${data.length} ${config.pluralName.toLowerCase()} from Spring Boot REST API`
+        `Retrieved ${data.length} ${config.pluralName.toLowerCase()} (batch of 20) from Spring Boot REST API`
       );
     } catch (err: any) {
       const errMsg = err.message || `Backend unavailable at ${getApiBaseUrl()}`;
       setRecordsError(errMsg);
       setRecords([]);
+      setHasMore(false);
       logActivity(
         'FETCH',
         selectedObject,
@@ -93,7 +100,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   }, [selectedObject, logActivity]);
 
-  // Fetch only when selectedObject changes
+  // 2. Infinite Scroll: Load next 20 records when user scrolls to bottom
+  const handleLoadMore = useCallback(async () => {
+    if (isLoadingMore || isLoadingRecords || !hasMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const nextOffset = records.length;
+      const nextBatch = await objectApi.getRecords(selectedObject, { limit: 20, offset: nextOffset });
+
+      if (nextBatch.length === 0) {
+        setHasMore(false);
+      } else {
+        setRecords((prev) => {
+          // Avoid duplicate keys
+          const existingIds = new Set(prev.map((r) => r.id));
+          const filtered = nextBatch.filter((r) => !existingIds.has(r.id));
+          return [...prev, ...filtered];
+        });
+        setHasMore(nextBatch.length === 20);
+
+        logActivity(
+          'FETCH',
+          selectedObject,
+          'SUCCESS',
+          `Loaded next ${nextBatch.length} ${currentConfig.pluralName.toLowerCase()} on scroll (offset: ${nextOffset})`
+        );
+      }
+    } catch (err: any) {
+      console.error('Failed to load next records batch:', err);
+      setHasMore(false);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, isLoadingRecords, hasMore, records.length, selectedObject, currentConfig, logActivity]);
+
+  // Fetch initial 20 records whenever selectedObject changes
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
@@ -119,9 +161,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     try {
       if (isEdit) {
-        // PUT /api/contacts/{id}
+        // PUT /api/[objects]/{id}
         await objectApi.updateRecord(selectedObject, editRecord.id, formData);
-        success(`${currentConfig.name} updated successfully`);
+        success(`${currentConfig.name} updated successfully in Salesforce`);
         logActivity(
           'UPDATE',
           selectedObject,
@@ -131,9 +173,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
           formData
         );
       } else {
-        // POST /api/contacts
+        // POST /api/[objects]
         const created = await objectApi.createRecord(selectedObject, formData);
-        success(`${currentConfig.name} created successfully`);
+        success(`${currentConfig.name} created successfully in Salesforce`);
         logActivity(
           'CREATE',
           selectedObject,
@@ -182,9 +224,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     setIsDeleting(true);
     try {
-      // DELETE /api/contacts/{id}
+      // DELETE /api/[objects]/{id}
       await objectApi.deleteRecord(selectedObject, recordId);
-      success(`${currentConfig.name} deleted successfully`);
+      success(`${currentConfig.name} deleted successfully from Salesforce`);
       logActivity(
         'DELETE',
         selectedObject,
@@ -250,13 +292,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Metric 3: Total Records */}
+        {/* Metric 3: Total Loaded Records */}
         <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm">
             <Layers className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Records</p>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Loaded Records</p>
             <p className="text-sm font-bold text-slate-900 leading-snug">
               {currentConfig.isBackendReady ? `${records.length} Records` : 'Pending Endpoint'}
             </p>
@@ -302,14 +344,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
           />
         </div>
 
-        {/* Dynamic Object Rendering */}
+        {/* Dynamic Object Rendering with 20-Record Pagination & Infinite Scroll */}
         {currentConfig.isBackendReady ? (
           <DataTable
             config={currentConfig}
             records={records}
             isLoading={isLoadingRecords}
+            isLoadingMore={isLoadingMore}
+            hasMore={hasMore}
             error={recordsError}
             onRefresh={fetchRecords}
+            onLoadMore={handleLoadMore}
             onViewRecord={(rec) => setViewRecord(rec)}
             onEditRecord={handleOpenEdit}
             onDeleteRecord={handleOpenDelete}

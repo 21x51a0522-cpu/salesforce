@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ObjectConfig, TableColumnConfig } from '../types';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { EmptyState } from './EmptyState';
@@ -17,29 +17,37 @@ import {
   Phone,
   Mail,
   User,
-  ShieldAlert
+  ShieldAlert,
+  Loader2,
+  Building2,
+  TrendingUp,
+  LifeBuoy
 } from 'lucide-react';
 
 interface DataTableProps {
   config: ObjectConfig;
   records: any[];
   isLoading: boolean;
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
   error: string | null;
   onRefresh: () => void;
+  onLoadMore?: () => void;
   onViewRecord: (record: any) => void;
   onEditRecord: (record: any) => void;
   onDeleteRecord: (record: any) => void;
   onCreateRecord?: () => void;
 }
 
-const PAGE_SIZE = 20;
-
 export const DataTable: React.FC<DataTableProps> = ({
   config,
   records,
   isLoading,
+  isLoadingMore = false,
+  hasMore = false,
   error,
   onRefresh,
+  onLoadMore,
   onViewRecord,
   onEditRecord,
   onDeleteRecord,
@@ -48,7 +56,32 @@ export const DataTable: React.FC<DataTableProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<string>(config.defaultSortField || 'id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Setup infinite scroll intersection observer on the bottom sentinel
+  useEffect(() => {
+    if (!sentinelRef.current || !onLoadMore || !hasMore || isLoading || isLoadingMore) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMore) {
+          onLoadMore();
+        }
+      },
+      {
+        root: null,
+        rootMargin: '200px',
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, isLoading, isLoadingMore, onLoadMore]);
 
   // Handle Sort
   const handleSort = (fieldKey: string) => {
@@ -60,7 +93,7 @@ export const DataTable: React.FC<DataTableProps> = ({
     }
   };
 
-  // Filter and Sort records
+  // Filter and Sort records locally for search/sort responsiveness
   const filteredAndSortedRecords = useMemo(() => {
     let list = [...records];
 
@@ -80,10 +113,12 @@ export const DataTable: React.FC<DataTableProps> = ({
       let aVal = a[sortField];
       let bVal = b[sortField];
 
-      // Handle composite Contact Name
-      if (sortField === 'name' && config.id === 'Contact') {
-        aVal = `${a.firstName || ''} ${a.lastName || ''}`.trim() || a.name || '';
-        bVal = `${b.firstName || ''} ${b.lastName || ''}`.trim() || b.name || '';
+      // Handle composite Name for Contact or Lead
+      if (sortField === 'name') {
+        if (config.id === 'Contact' || config.id === 'Lead') {
+          aVal = `${a.firstName || ''} ${a.lastName || ''}`.trim() || a.name || '';
+          bVal = `${b.firstName || ''} ${b.lastName || ''}`.trim() || b.name || '';
+        }
       }
 
       if (aVal === undefined || aVal === null) aVal = '';
@@ -105,27 +140,17 @@ export const DataTable: React.FC<DataTableProps> = ({
     return list;
   }, [records, searchTerm, sortField, sortDirection, config]);
 
-  // Paginated slice for 20 records at a time
-  const paginatedRecords = useMemo(() => {
-    return filteredAndSortedRecords.slice(0, visibleCount);
-  }, [filteredAndSortedRecords, visibleCount]);
-
-  const hasMore = visibleCount < filteredAndSortedRecords.length;
-
-  const handleLoadMore = () => {
-    setVisibleCount((prev) => prev + PAGE_SIZE);
-  };
-
-  // Get cell display value
+  // Render cell content intelligently based on field type and object schema
   const renderCellContent = (col: TableColumnConfig, record: any) => {
     if (col.render) {
       return col.render(record);
     }
 
-    if (col.key === 'name' && config.id === 'Contact') {
+    // Contact or Lead Name
+    if (col.key === 'name' && (config.id === 'Contact' || config.id === 'Lead')) {
       const first = record.firstName || '';
       const last = record.lastName || '';
-      const fullName = `${first} ${last}`.trim();
+      const fullName = `${first} ${last}`.trim() || record.name || 'Unnamed';
       return (
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
@@ -133,7 +158,7 @@ export const DataTable: React.FC<DataTableProps> = ({
           </div>
           <div>
             <span className="font-semibold text-slate-900 block leading-snug">
-              {fullName || record.name || 'Unnamed Contact'}
+              {fullName}
             </span>
             {record.id && (
               <span className="text-[10px] text-slate-400 font-mono block">
@@ -145,6 +170,127 @@ export const DataTable: React.FC<DataTableProps> = ({
       );
     }
 
+    // Account Name
+    if (col.key === 'name' && config.id === 'Account') {
+      return (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+            <Building2 className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <span className="font-semibold text-slate-900 block leading-snug">
+              {record.name || 'Unnamed Account'}
+            </span>
+            {record.id && (
+              <span className="text-[10px] text-slate-400 font-mono block">
+                ID: {record.id.length > 15 ? `${record.id.substring(0, 15)}...` : record.id}
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Opportunity Name
+    if (col.key === 'name' && config.id === 'Opportunity') {
+      return (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+            <TrendingUp className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div>
+            <span className="font-semibold text-slate-900 block leading-snug">
+              {record.name || 'Unnamed Opportunity'}
+            </span>
+            {record.id && (
+              <span className="text-[10px] text-slate-400 font-mono block">
+                ID: {record.id.length > 15 ? `${record.id.substring(0, 15)}...` : record.id}
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Case Subject
+    if (col.key === 'subject' && config.id === 'Case') {
+      return (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
+            <LifeBuoy className="w-4 h-4 text-indigo-600" />
+          </div>
+          <div>
+            <span className="font-semibold text-slate-900 block leading-snug">
+              {record.subject || 'Unnamed Case'}
+            </span>
+            {record.caseNumber && (
+              <span className="text-[10px] text-blue-600 font-mono block font-semibold">
+                #{record.caseNumber}
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Status or Stage badges
+    if (col.key === 'status' || col.key === 'stageName') {
+      const val = record[col.key];
+      if (!val) return <span className="text-slate-400">—</span>;
+
+      let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
+      const strVal = String(val).toLowerCase();
+      if (strVal.includes('won') || strVal.includes('closed') || strVal.includes('converted')) {
+        badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      } else if (strVal.includes('working') || strVal.includes('negotiation') || strVal.includes('proposal')) {
+        badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+      } else if (strVal.includes('new') || strVal.includes('open') || strVal.includes('prospecting')) {
+        badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+      } else if (strVal.includes('lost') || strVal.includes('escalated')) {
+        badgeColor = 'bg-red-50 text-red-700 border-red-200';
+      }
+
+      return (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border ${badgeColor}`}>
+          {String(val)}
+        </span>
+      );
+    }
+
+    // Priority badge
+    if (col.key === 'priority') {
+      const val = record.priority;
+      if (!val) return <span className="text-slate-400">—</span>;
+      const isHigh = String(val).toLowerCase() === 'high';
+      return (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
+          isHigh ? 'bg-red-50 text-red-700 border-red-200' : 'bg-slate-50 text-slate-700 border-slate-200'
+        }`}>
+          {String(val)}
+        </span>
+      );
+    }
+
+    // Currency / Amount formatting
+    if (col.key === 'amount') {
+      const val = record.amount;
+      if (val === undefined || val === null || val === '') return <span className="text-slate-400">—</span>;
+      const num = Number(val);
+      return (
+        <span className="font-semibold text-slate-900 text-xs">
+          ${isNaN(num) ? String(val) : num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+        </span>
+      );
+    }
+
+    // Probability percentage
+    if (col.key === 'probability') {
+      const val = record.probability;
+      if (val === undefined || val === null || val === '') return <span className="text-slate-400">—</span>;
+      return <span className="font-semibold text-slate-700 text-xs">{val}%</span>;
+    }
+
+    // Email link
     if (col.key === 'email') {
       const email = record.email;
       if (!email) return <span className="text-slate-400 italic">No email</span>;
@@ -159,6 +305,7 @@ export const DataTable: React.FC<DataTableProps> = ({
       );
     }
 
+    // Phone link
     if (col.key === 'phone') {
       const phone = record.phone;
       if (!phone) return <span className="text-slate-400 italic">No phone</span>;
@@ -183,7 +330,7 @@ export const DataTable: React.FC<DataTableProps> = ({
 
   return (
     <div id="data-manager-container" className="space-y-4">
-      {/* Control Bar: Search, Stats, New Record Button */}
+      {/* Control Bar: Search, Refresh, New Record Button */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
         {/* Search Input */}
         <div className="relative flex-1 min-w-[200px] max-w-md">
@@ -191,12 +338,9 @@ export const DataTable: React.FC<DataTableProps> = ({
           <input
             id="table-search-input"
             type="text"
-            placeholder={`Search ${config.pluralName.toLowerCase()} by name, email, phone...`}
+            placeholder={`Search ${config.pluralName.toLowerCase()} by fields...`}
             value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setVisibleCount(PAGE_SIZE); // reset pagination on search
-            }}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 rounded-xl text-xs sm:text-sm text-slate-900 transition-all focus:outline-none"
           />
           {searchTerm && (
@@ -324,7 +468,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {paginatedRecords.map((record, index) => {
+                  {filteredAndSortedRecords.map((record, index) => {
                     const rowId = record.id || `row-${index}`;
                     return (
                       <tr
@@ -379,7 +523,7 @@ export const DataTable: React.FC<DataTableProps> = ({
 
           {/* Mobile Card View */}
           <div className="grid grid-cols-1 gap-3 md:hidden">
-            {paginatedRecords.map((record, index) => {
+            {filteredAndSortedRecords.map((record, index) => {
               const rowId = record.id || `card-${index}`;
               const first = record.firstName || '';
               const last = record.lastName || '';
@@ -448,7 +592,10 @@ export const DataTable: React.FC<DataTableProps> = ({
             })}
           </div>
 
-          {/* Pagination & Record Count Footer */}
+          {/* Bottom Sentinel for Infinite Scroll on Scroll End */}
+          <div ref={sentinelRef} id="table-scroll-sentinel" className="h-4 w-full" />
+
+          {/* Pagination & Infinite Scroll Footer */}
           <div
             id="table-pagination-footer"
             className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-500 shadow-2xs"
@@ -456,12 +603,8 @@ export const DataTable: React.FC<DataTableProps> = ({
             <div className="flex items-center gap-2 font-medium">
               <Layers className="w-4 h-4 text-slate-400" />
               <span>
-                Showing{' '}
-                <strong className="text-slate-800">
-                  {Math.min(visibleCount, filteredAndSortedRecords.length)}
-                </strong>{' '}
-                of <strong className="text-slate-800">{filteredAndSortedRecords.length}</strong>{' '}
-                {config.pluralName.toLowerCase()}
+                Loaded <strong className="text-slate-800">{records.length}</strong>{' '}
+                {config.pluralName.toLowerCase()} (20 per page)
                 {searchTerm && ' (filtered)'}
               </span>
             </div>
@@ -469,15 +612,25 @@ export const DataTable: React.FC<DataTableProps> = ({
             {hasMore ? (
               <button
                 id="load-more-records-btn"
-                onClick={handleLoadMore}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-colors"
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-colors disabled:opacity-50"
               >
-                <span>Load Next 20 Records</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Loading next 20 records...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Scroll or Click to Load Next 20</span>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </>
+                )}
               </button>
             ) : (
               <span className="text-[11px] text-slate-400 font-medium">
-                All {filteredAndSortedRecords.length} records displayed
+                All {records.length} records loaded from Salesforce
               </span>
             )}
           </div>

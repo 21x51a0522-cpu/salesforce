@@ -5,7 +5,7 @@ import { ContactRecord } from '../types';
  * Contact API Service
  * 
  * Directly calls Spring Boot Contact REST endpoints:
- * - GET /api/contacts
+ * - GET /api/contacts?limit=20&offset=0
  * - GET /api/contacts/{id}
  * - POST /api/contacts
  * - PUT /api/contacts/{id}
@@ -13,14 +13,20 @@ import { ContactRecord } from '../types';
  */
 export const contactApi = {
   /**
-   * Fetch all contacts from the Spring Boot backend
+   * Fetch contacts from the Spring Boot backend with optional pagination (20 per call)
    */
-  async getAll(): Promise<ContactRecord[]> {
+  async getAll(params?: { limit?: number; offset?: number; page?: number; pageSize?: number }): Promise<ContactRecord[]> {
     const data = await apiClient<ContactRecord[] | { records: ContactRecord[] } | any>('/api/contacts', {
       method: 'GET',
+      params: {
+        limit: params?.limit ?? 20,
+        offset: params?.offset,
+        page: params?.page,
+        pageSize: params?.pageSize,
+      },
     });
 
-    // Normalize response if Spring Boot returns array or wrapped object like { records: [] } or { data: [] }
+    // Normalize response if Spring Boot returns array or wrapped object like { records: [] } or { content: [] }
     if (Array.isArray(data)) {
       return data;
     }
@@ -49,7 +55,7 @@ export const contactApi = {
    * Create a new contact
    * Payload: { firstName, lastName, email, phone }
    */
-  async create(payload: { firstName: string; lastName: string; email: string; phone: string }): Promise<ContactRecord> {
+  async create(payload: { firstName: string; lastName: string; email: string; phone: string; [key: string]: any }): Promise<ContactRecord> {
     return apiClient<ContactRecord>('/api/contacts', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -60,7 +66,7 @@ export const contactApi = {
    * Update an existing contact by ID
    * Payload: { firstName, lastName, email, phone }
    */
-  async update(id: string, payload: { firstName: string; lastName: string; email: string; phone: string }): Promise<ContactRecord> {
+  async update(id: string, payload: { firstName: string; lastName: string; email: string; phone: string; [key: string]: any }): Promise<ContactRecord> {
     return apiClient<ContactRecord>(`/api/contacts/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
