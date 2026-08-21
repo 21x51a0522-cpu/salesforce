@@ -1,6 +1,5 @@
-```ts
-import { api } from './api';
-import type { ContactRecord } from '../types';
+import { apiClient } from './apiClient';
+import { ContactRecord } from '../types';
 
 const mapSalesforceContact = (contact: any): ContactRecord => ({
   id: contact.Id ?? contact.id ?? '',
@@ -11,9 +10,25 @@ const mapSalesforceContact = (contact: any): ContactRecord => ({
 });
 
 export const contactApi = {
-  async getAll(): Promise<ContactRecord[]> {
-    const response = await api.get('/api/contacts');
-    const data = response.data;
+  async getAll(
+    params?: {
+      limit?: number;
+      offset?: number;
+      page?: number;
+      pageSize?: number;
+    }
+  ): Promise<ContactRecord[]> {
+    const data = await apiClient<
+      ContactRecord[] | { records: ContactRecord[] } | any
+    >('/api/contacts', {
+      method: 'GET',
+      params: {
+        limit: params?.limit ?? 20,
+        offset: params?.offset,
+        page: params?.page,
+        pageSize: params?.pageSize,
+      },
+    });
 
     if (Array.isArray(data)) {
       return data.map(mapSalesforceContact);
@@ -35,25 +50,58 @@ export const contactApi = {
   },
 
   async getById(id: string): Promise<ContactRecord> {
-    const response = await api.get(`/api/contacts/${id}`);
-    return mapSalesforceContact(response.data);
+    const data = await apiClient<any>(
+      `/api/contacts/${encodeURIComponent(id)}`,
+      {
+        method: 'GET',
+      }
+    );
+
+    return mapSalesforceContact(data);
   },
 
-  async create(contact: Omit<ContactRecord, 'id'>): Promise<ContactRecord> {
-    const response = await api.post('/api/contacts', contact);
-    return mapSalesforceContact(response.data);
+  async create(payload: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    [key: string]: any;
+  }): Promise<ContactRecord> {
+    const data = await apiClient<any>('/api/contacts', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    return mapSalesforceContact(data);
   },
 
   async update(
     id: string,
-    contact: Partial<ContactRecord>
+    payload: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      [key: string]: any;
+    }
   ): Promise<ContactRecord> {
-    const response = await api.put(`/api/contacts/${id}`, contact);
-    return mapSalesforceContact(response.data);
+    const data = await apiClient<any>(
+      `/api/contacts/${encodeURIComponent(id)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      }
+    );
+
+    return mapSalesforceContact(data);
   },
 
   async delete(id: string): Promise<void> {
-    await api.delete(`/api/contacts/${id}`);
+    await apiClient<void>(
+      `/api/contacts/${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+      }
+    );
   },
 };
-```
